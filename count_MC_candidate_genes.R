@@ -3,6 +3,8 @@ library(UpSetR)
 
 
 currentdate <- "2019-02-15"
+maxyear <- 2018
+
 
 # read in data
 raw_hgncgenes <- read.table("HGNC_genes.tsv", head=FALSE, stringsAsFactors=FALSE)
@@ -22,10 +24,14 @@ raw_gnomad_canonical_mis <- raw_gnomad_canonical %>% mutate(mis_ile = ntile(mis_
 raw_gnomad_canonical_mis_lof <- raw_gnomad_canonical_mis %>% mutate(lof_ile = ntile(lof_rank, 10))
 
 
-omim <- read.table(paste0(currentdate,".OMIM.phenotypecategories.explained.txt"), head=TRUE, sep="\t", stringsAsFactors=FALSE, comment.char="", quote="", strip.white=TRUE)
-omim.monogenic <- subset(omim, subset=(isComplex!="yes"&isComplex!="cancer"&phenomappingkey==3))
-omim_genes <- unique(omim.monogenic$locussymbol)
+omim <- read.table(paste0(currentdate,".combinedOMIM.mentionsNGS.year.inheritance.txt"), head=TRUE, sep="\t", stringsAsFactors=FALSE, comment.char="", quote="", strip.white=TRUE)
+omim.monogenic <- subset(omim, subset=(phenomappingkey!=4&isComplex!="yes"&isComplex!="cancer"&yearDelineated<=maxyear&yearDiscovered<=maxyear))
+omim.monogenic.solved <- subset(omim.monogenic, subset=(phenomappingkey==3))
+
+omim_genes <- unique(omim.monogenic.solved$locussymbol)
 potentialMC_genes <- unique(allgenes[!(allgenes %in% omim_genes)])
+
+
 
 ccr_genes <- unique(c(raw_ccrs_autosomes$gene, raw_ccrs_xchr$gene))
 gnomad_mis_genes <- unique(raw_gnomad_canonical_mis_lof[raw_gnomad_canonical_mis_lof$mis_ile<=2,"gene"])
@@ -76,7 +82,7 @@ upset(combined, order.by="freq", nsets=8, group.by="sets")
 
 
 #######################################
-# trying a couple way of drawing Venn diagrams
+# trying a couple way of drawing Venn diagrams. Need to do some post-processing in Illustrator to make it pretty
 #######################################
 
 

@@ -21,8 +21,8 @@ if (length(args) == 0) {
 }
 
 
-# currentdate <- "2019-02-15"
-maxyear <- 2017
+currentdate <- "2019-02-15"
+maxyear <- 2018
 
 
 
@@ -71,6 +71,7 @@ colnames(geneknownvsdelineation.allyears) <- allyears
 geneknownvsdelineation.allyears[is.na(geneknownvsdelineation.allyears)] <- 0
 
 
+# do regression to get trend for rate of syndrome delineation during different time periods
 # 1986-1997 inclusive; 1998-2009; 2010-maxyear*
 summary(lm(colSums(geneknownvsdelineation[,1:12]) ~ as.numeric(colnames(geneknownvsdelineation)[1:12]) ))
 # 1998-2009
@@ -99,6 +100,9 @@ current.NGSvsnoNGS.allyears <- cbind(emptyyears, current.NGSvsnoNGS.allyears)
 current.NGSvsnoNGS.since1986 <- current.NGSvsnoNGS.allyears[,colnames(current.NGSvsnoNGS.allyears)>=1986&colnames(current.NGSvsnoNGS.allyears)<=maxyear]
 current.NGSvsnoNGS.NGSyears <- current.NGSvsnoNGS.since1986[,current.NGSvsnoNGS.since1986[2,]!=0]
 
+
+
+# do regression to get trend for rate of gene discovery during different time periods 
 # 1986-1997 inclusive; 1998-2009; 2010-2015/8
 rbind(1:ncol(current.NGSvsnoNGS.since1986), current.NGSvsnoNGS.since1986)
 summary(lm(colSums(current.NGSvsnoNGS.since1986[,1:12]) ~ as.numeric(colnames(current.NGSvsnoNGS.since1986)[1:12]) ))
