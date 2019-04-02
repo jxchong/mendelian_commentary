@@ -1,7 +1,8 @@
-setwd("~/Dropbox/Postdoc/Manuscripts/Mendelian gene discovery review commentary/nMCs projection analysis")
 library(tidyverse)
 library(UpSetR)
 
+
+currentdate <- "2019-02-15"
 
 # read in data
 raw_hgncgenes <- read.table("HGNC_genes.tsv", head=FALSE, stringsAsFactors=FALSE)
@@ -20,8 +21,8 @@ raw_gnomad_canonical$lof_rank[order(raw_gnomad_canonical$oe_lof_upper)] <- 1:nro
 raw_gnomad_canonical_mis <- raw_gnomad_canonical %>% mutate(mis_ile = ntile(mis_rank, 10))
 raw_gnomad_canonical_mis_lof <- raw_gnomad_canonical_mis %>% mutate(lof_ile = ntile(lof_rank, 10))
 
-currentdate <- "2019-02-15"
-omim <- read.table(paste0("~/Dropbox/Postdoc/Grants/UW-CMG\ 2015\ phase\ 2/OMIM_analysis/",currentdate,".OMIM.phenotypecategories.explained.txt"), head=TRUE, sep="\t", stringsAsFactors=FALSE, comment.char="", quote="", strip.white=TRUE)
+
+omim <- read.table(paste0(currentdate,".OMIM.phenotypecategories.explained.txt"), head=TRUE, sep="\t", stringsAsFactors=FALSE, comment.char="", quote="", strip.white=TRUE)
 omim.monogenic <- subset(omim, subset=(isComplex!="yes"&isComplex!="cancer"&phenomappingkey==3))
 omim_genes <- unique(omim.monogenic$locussymbol)
 potentialMC_genes <- unique(allgenes[!(allgenes %in% omim_genes)])
@@ -69,17 +70,13 @@ combined$humanmouse_intersect <- as.integer((combined$any_predictor+combined$mou
 write.csv(combined, "combined_genes.tsv", row.names=FALSE)
 
 colSums(combined)
-# > colSums(combined)
-#                  ccr               NMDesc           gnomad_mis           gnomad_lof        any_predictor            OMIMknown          potentialMC
-#                    0                 1890                 3743                 7540                 9596                 3519                15675
-#         mouse_lethal      mouse_nonlethal          mouse_pheno     humanmouse_union humanmouse_intersect
-#                 5497                10199                10487                13737                 6346
 
 
 upset(combined, order.by="freq", nsets=8, group.by="sets")
 
 
 #######################################
+# trying a couple way of drawing Venn diagrams
 #######################################
 
 
