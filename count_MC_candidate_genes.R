@@ -1,9 +1,6 @@
 library(tidyverse)
-library(UpSetR)
-
 
 currentdate <- "2019-02-15"
-maxyear <- 2018
 
 
 # read in data
@@ -23,15 +20,11 @@ raw_gnomad_canonical$lof_rank[order(raw_gnomad_canonical$oe_lof_upper)] <- 1:nro
 raw_gnomad_canonical_mis <- raw_gnomad_canonical %>% mutate(mis_ile = ntile(mis_rank, 10))
 raw_gnomad_canonical_mis_lof <- raw_gnomad_canonical_mis %>% mutate(lof_ile = ntile(lof_rank, 10))
 
-
 omim <- read.table(paste0(currentdate,".combinedOMIM.mentionsNGS.year.inheritance.txt"), head=TRUE, sep="\t", stringsAsFactors=FALSE, comment.char="", quote="", strip.white=TRUE)
-omim.monogenic <- subset(omim, subset=(phenomappingkey!=4&isComplex!="yes"&isComplex!="cancer"&yearDelineated<=maxyear&yearDiscovered<=maxyear))
+omim.monogenic <- subset(omim, subset=(phenomappingkey!=4&isComplex!="yes"&isComplex!="cancer"))
 omim.monogenic.solved <- subset(omim.monogenic, subset=(phenomappingkey==3))
-
-omim_genes <- unique(omim.monogenic.solved$locussymbol)
+omim_genes <- unique(omim.monogenic$locussymbol)
 potentialMC_genes <- unique(allgenes[!(allgenes %in% omim_genes)])
-
-
 
 ccr_genes <- unique(c(raw_ccrs_autosomes$gene, raw_ccrs_xchr$gene))
 gnomad_mis_genes <- unique(raw_gnomad_canonical_mis_lof[raw_gnomad_canonical_mis_lof$mis_ile<=2,"gene"])
@@ -73,17 +66,81 @@ combined[row.names(combined) %in% mouse_pheno_genes, "mouse_pheno"] <- 1
 combined$humanmouse_union <- as.integer((combined$any_predictor + combined$mouse_pheno) >= 1)
 combined$humanmouse_intersect <- as.integer((combined$any_predictor+combined$mouse_pheno) == 2)
 
-write.csv(combined, "combined_genes.tsv", row.names=FALSE)
+write.csv(combined, "combined_genes.tsv", row.names=TRUE)
 
 colSums(combined)
+# > colSums(combined)
+#                  ccr               NMDesc           gnomad_mis           gnomad_lof        any_predictor            OMIMknown          potentialMC
+#                    0                 1890                 3743                 7540                 9596                 3519                15675
+#         mouse_lethal      mouse_nonlethal          mouse_pheno     humanmouse_union humanmouse_intersect
+#                 5497                10199                10487                13737                 6346
 
 
+# some data exploration
+# what are the characteristics of the genes with no human or mouse support? genes with no human support?
+# answer: not surprisingly, it's enriched for recessives
+
+solvednohumanmouse_union <- subset(omim.monogenic, locussymbol%in%allgenes[combined$humanmouse_union==FALSE&combined$OMIMknown==TRUE])
+solvednohumanmouse_union.annot <- merge(solvednohumanmouse_union, raw_gnomad_canonical_mis_lof, by.x="locussymbol", by.y="gene")
+
+solvednohumanmouse_union.inheritDN <- subset(solvednohumanmouse_union.annot, subset=(official_inheritDN==1|inheritDN==1)&(official_inheritAD==1|inheritAD==1|official_inheritX==1|inheritX==1)&mentionsLinkage==FALSE)
+solvednohumanmouse_union.inheritAD <- subset(solvednohumanmouse_union.annot, subset=(official_inheritAD==1|inheritAD==1)&((official_inheritDN==0&inheritDN==0)|mentionsLinkage==TRUE)&(official_inheritAR==0|inheritAR==0))
+solvednohumanmouse_union.inheritAR <- subset(solvednohumanmouse_union.annot, subset=(official_inheritAR==1|inheritAR==1)&(official_inheritAD==0|inheritAD==0))
+solvednohumanmouse_union.inheritX <- subset(solvednohumanmouse_union.annot, subset=(official_inheritX==1|inheritX==1)&((official_inheritDN==0&inheritDN==0)|mentionsLinkage==TRUE))
+
+layout(matrix(1:8, ncol=2, byrow=TRUE))
+hist(solvednohumanmouse_union.inheritDN$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohumanmouse_union.inheritDN$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohumanmouse_union.inheritAD$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohumanmouse_union.inheritAD$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohumanmouse_union.inheritAR$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohumanmouse_union.inheritAR$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohumanmouse_union.inheritX$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohumanmouse_union.inheritX$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+
+
+# store omim info for known genes with no human constraint support
+solvednohuman <- subset(omim.monogenic, locussymbol%in%allgenes[combined$any_predictor==FALSE&combined$OMIMknown==TRUE])
+solvednohuman.annot <- merge(solvednohuman, raw_gnomad_canonical_mis_lof, by.x="locussymbol", by.y="gene")
+write.table(solvednohuman.annot, file="knowngenes_nohumansupport.tsv", quote=FALSE, sep="\t", row.names=FALSE)
+
+solvednohuman.inheritDN <- subset(solvednohuman.annot, subset=(official_inheritDN==1|inheritDN==1)&(official_inheritAD==1|inheritAD==1|official_inheritX==1|inheritX==1)&mentionsLinkage==FALSE)
+solvednohuman.inheritAD <- subset(solvednohuman.annot, subset=(official_inheritAD==1|inheritAD==1)&((official_inheritDN==0&inheritDN==0)|mentionsLinkage==TRUE)&(official_inheritAR==0|inheritAR==0))
+solvednohuman.inheritAR <- subset(solvednohuman.annot, subset=(official_inheritAR==1|inheritAR==1)&(official_inheritAD==0|inheritAD==0))
+solvednohuman.inheritX <- subset(solvednohuman.annot, subset=(official_inheritX==1|inheritX==1)&((official_inheritDN==0&inheritDN==0)|mentionsLinkage==TRUE))
+
+layout(matrix(1:8, ncol=2, byrow=TRUE))
+hist(solvednohuman.inheritDN$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohuman.inheritDN$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohuman.inheritAD$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohuman.inheritAD$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohuman.inheritAR$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohuman.inheritAR$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohuman.inheritX$mis_rank, xlim=c(1,20000), ylim=c(0,200))
+hist(solvednohuman.inheritX$lof_rank, xlim=c(1,20000), ylim=c(0,200))
+
+
+
+
+
+#######################################
+#  various plotting methods
+#######################################
+
+# library(UpSetR) (for interactive exploratory visualization)
 upset(combined, order.by="freq", nsets=8, group.by="sets")
 
 
-#######################################
-# trying a couple way of drawing Venn diagrams. Need to do some post-processing in Illustrator to make it pretty
-#######################################
+# qualitativecolors <- as.character(c("#332288", "#88CCEE", "#117733", "#999933", "#DDCC77", "#CC6677", "#882255", "#AA4499"))
+rainbowcolors <- as.character(c("#781C81", "#3F56A7", "#4B91C0", "#5FAA9F", "#91BD61", "#D8AF3D", "#E77C30", "#D92120"))
+mycolors.red <- "#D92120"
+mycolors.purple <- "#404096"
+mycolors.orange <- "#E68B33"
+mycolors.teal <- "#63AD99"
+mycolors.blue <- "#498CC2"
+mycolors.yellow <- "#BEBC48"
+
+
 
 
 library(eulerr)
@@ -203,17 +260,59 @@ nVennR_human <- plotVenn(list(
 ))
 # listVennRegions(nVennR_union)
 
-# qualitativecolors <- as.character(c("#332288", "#88CCEE", "#117733", "#999933", "#DDCC77", "#CC6677", "#882255", "#AA4499"))
-rainbowcolors <- as.character(c("#781C81", "#3F56A7", "#4B91C0", "#5FAA9F", "#91BD61", "#D8AF3D", "#E77C30", "#D92120"))
-mycolors.red <- "#D92120"
-mycolors.purple <- "#404096"
-mycolors.orange <- "#E68B33"
-mycolors.teal <- "#63AD99"
-mycolors.blue <- "#498CC2"
-mycolors.yellow <- "#BEBC48"
-
 
 showSVG(outFile="Novel_known_mouse.svg", nVennObj = nVennR_mouse, opacity = 0.1, borderWidth = 3, setColors=c(mycolors.red,mycolors.purple,mycolors.blue), labelRegions=FALSE)
 showSVG(outFile="Novel_known_human.svg", nVennObj = nVennR_human, opacity = 0.1, borderWidth = 3, setColors=c(mycolors.red,mycolors.purple,mycolors.orange), labelRegions=FALSE)
 showSVG(outFile="Novel_known_union.svg", nVennObj = nVennR_union, opacity = 0.1, borderWidth = 3, setColors=c(mycolors.red,mycolors.purple,mycolors.teal), labelRegions=FALSE)
 showSVG(outFile="Novel_known_intersect.svg", nVennObj = nVennR_intersect, opacity = 0.1, borderWidth = 3, setColors=c(mycolors.red,mycolors.purple,mycolors.yellow), labelRegions=FALSE)
+
+
+
+### try stacked bar graph plotting
+
+
+humanonly <- c("Known genes for MCs supported by human data", "Known genes for MCs not supported by human data", "Novel genes for MCs not supported by human data", "Novel genes for MCs supported by human data (priority candidate genes)")
+mouseonly <- c("Known genes for MCs supported by mouse data", "Known genes for MCs not supported by mouse data", "Novel genes for MCs not supported by mouse data",  "Novel genes for MCs supported by mouse data (priority candidate genes)")
+humanandmouse <- c("Known genes for MCs supported by both human and mouse data", "Known genes for MCs not supported by both", "Novel genes for MCs not supported by both", "Novel genes for MCs supported by both (priority candidate genes)")
+humanormouse <- c("Known genes for MCs supported by either human or mouse data", "Known genes for MCs not supported by either", "Novel genes for MCs not supported by either", "Novel genes for MCs supported by either (priority candidate genes)")
+
+humanormousedata <- c(249, 3270, 5208, 10467)
+humanandmousedata <- c(1623, 1896, 11225, 4450)
+mouseonlydata <- c(533, 2986, 8174, 7501)
+humanonlydata <- c(1393, 2180, 8259, 7416)
+
+
+genedata <- t(matrix(
+    c(humanormousedata, humanandmousedata, mouseonlydata, humanonlydata),
+    nrow=4, ncol=4, byrow=TRUE
+))
+
+
+
+# Find the top y position of each block
+barmids <- apply(genedata, 2, cumsum)
+# Move it downwards half the size of each block
+barmids <- barmids - genedata/2
+barmids <- t(barmids)
+
+
+
+pdf("nMCs_barplot_original.pdf", width=6, height=3.3, pointsize=12)
+par(mar=c(4,1,3,1.5))
+bar.y <- barplot(genedata, horiz=TRUE,
+    xlim=c(0,20000), xlab="Number of genes",
+    col=c("#4277BD", "#529DB7", "#E39C37", "#E76D2E"), pch=21, border=NA, cex.main=0.95, cex.axis=0.8, cex.lab=0.8
+)
+
+labelcolors <- c("white", "white", "black", "black")
+text(barmids[4,], bar.y[4], lab=humanonlydata, col=labelcolors, cex=0.9)
+text(barmids[3,], bar.y[3], lab=mouseonlydata, col=labelcolors, cex=0.9)
+text(barmids[2,], bar.y[2], lab=humanandmousedata, col=labelcolors, cex=0.9)
+text(barmids[1,], bar.y[1], lab=humanormousedata, col=labelcolors, cex=0.9)
+dev.off()
+
+
+
+
+text(x=bars.x, y=-20, labels=years.important, cex=0.8, xpd=TRUE, srt=90)
+mtext("Year", side=1, cex=0.8, line=2)
