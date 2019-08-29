@@ -1,6 +1,6 @@
 This repository contains the scripts used to generate data for the manuscript:
 
-Bamshad MJ, Nickerson DA, Chong JX. Mendelian gene discovery: reports of its demise have been greatly exaggerated.
+Bamshad MJ, Nickerson DA, Chong JX. Mendelian gene discovery: Fast and furious with no end in sight
 
 With the files in this repository, you can generate the figures and the datasets used for analyses in the manuscript.
 
